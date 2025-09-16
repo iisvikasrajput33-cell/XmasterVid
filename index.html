@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>वीडियो स्ट्रीमिंग प्लेटफॉर्म</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1014;
+            color: #f1f1f1;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { scrollbar-width: none; }
+        .card-transform { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .card-transform:hover { transform: scale(1.05); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+        .hero-gradient { background: linear-gradient(to top, #0f1014 10%, rgba(15, 16, 20, 0) 100%); }
+        .aspect-\[2\/3\] { aspect-ratio: 2 / 3; }
+        .tag {
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #a0aec0;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            margin-right: 4px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-black bg-opacity-50 backdrop-blur-md">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-8">
+                    <a href="#" class="text-2xl font-bold text-white">LOGO</a>
+                    <nav id="category-nav" class="hidden md:flex space-x-6">
+                        <a href="#" data-category="trending" class="text-gray-300 hover:text-white transition">Home Page</a>
+                        <a href="#" data-category="First Time" class="text-gray-300 hover:text-white transition">First Time</a>
+                        <a href="#" data-category="Hard" class="text-gray-300 hover:text-white transition">Hard</a>
+                        <a href="#" data-category="Girl" class="text-gray-300 hover:text-white transition">Girl</a>
+                        <a href="#" data-category="Cute Girl" class="text-gray-300 hover:text-white transition">Cute Girl</a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <form id="search-form" class="hidden sm:block">
+                       <input id="search-input" type="text" placeholder="खोजें..." class="bg-gray-800 text-white rounded-full px-4 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all w-40 focus:w-64">
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-16">
+        <!-- Hero Section -->
+        <section id="hero-section" class="relative min-h-[60vh] flex items-end text-white p-4 sm:p-6 lg:p-8">
+            <div class="absolute inset-0 bg-cover bg-center"></div>
+            <div class="absolute inset-0 hero-gradient"></div>
+            <div id="hero-content" class="relative z-10 max-w-2xl">
+                 <!-- Content will be set by JS -->
+            </div>
+        </section>
+
+        <!-- Content Rows -->
+        <div id="content-container" class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 border-t border-gray-800 py-8">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500">
+            <p>&copy; 2024 आपका स्ट्रीमिंग प्लेटफॉर्म. सभी अधिकार सुरक्षित।</p>
+        </div>
+    </footer>
+    
+    <!-- Video Player Modal -->
+    <div id="video-player-modal" class="fixed inset-0 bg-black bg-opacity-90 z-[100] flex items-center justify-center hidden p-4">
+        <div class="relative w-full max-w-5xl bg-black rounded-lg shadow-xl">
+            <button id="close-player-btn" class="absolute -top-3 -right-3 md:top-2 md:right-2 text-white bg-gray-800/80 rounded-full h-10 w-10 flex items-center justify-center text-3xl z-10 leading-none">&times;</button>
+            <video id="modal-video-player" class="w-full max-h-[90vh] rounded-lg" controls autoplay playsinline loop></video>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const contentContainer = document.getElementById('content-container');
+            const heroSection = document.getElementById('hero-section').querySelector('.bg-cover');
+            const heroContent = document.getElementById('hero-content');
+            
+            // --- स्टेट मैनेजमेंट ---
+            let currentPage = 1;
+            let isLoading = false;
+            let currentMode = 'trending'; // 'trending' or 'search'
+            let currentQuery = '';
+
+            // --- API कॉन्फ़िगरेशन ---
+            const apiKey = 'iTBaGr3LAh4IAKeWh-5SGD85LzPgznM--ytwnPp8fwU';
+            const TRENDING_URL = 'https://api.adultdatalink.com/redgifs/trending?parameter=gif';
+            const SEARCH_URL = 'https://api.adultdatalink.com/redgifs/search?parameter=gif';
+
+            // --- हेल्पर फ़ंक्शन ---
+            function titleCase(str) {
+                if (!str) return '';
+                return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+
+            // --- UI रेंडर करने के लिए फ़ंक्शंस ---
+            function setupHero(heroItem) {
+                if (heroItem) {
+                    heroSection.style.backgroundImage = `url('${heroItem.backdrop}')`;
+                    const tagsHTML = (heroItem.tags || []).map(tag => `<span class="tag">#${titleCase(tag)}</span>`).join(' ');
+                    heroContent.innerHTML = `
+                        <h1 class="text-4xl md:text-5xl font-bold mb-4">${titleCase(heroItem.title)}</h1>
+                        <div class="mb-6">${tagsHTML}</div>
+                        <button class="bg-white text-black font-bold py-2 px-6 rounded-lg mr-4 hover:bg-gray-200 transition" onclick='openPlayer(${JSON.stringify(heroItem).replace(/"/g, "&quot;")})'>
+                            ▶ चलाएं
+                        </button>
+                    `;
+                } else {
+                    heroSection.style.backgroundImage = 'none';
+                    heroContent.innerHTML = `<h1 class="text-4xl md:text-5xl font-bold mb-4">कोई वीडियो नहीं मिला</h1>`;
+                }
+            }
+            
+            function renderContent(items, title) {
+                contentContainer.innerHTML = '';
+                if (items && items.length > 0) {
+                    const section = document.createElement('section');
+                    section.innerHTML = `
+                        <h2 class="text-2xl font-bold mb-4">${titleCase(title)}</h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                            ${items.map(item => createCard(item)).join('')}
+                        </div>
+                    `;
+                    contentContainer.appendChild(section);
+                } else {
+                    contentContainer.innerHTML = `<p class="text-center text-xl">कोई सामग्री नहीं मिली।</p>`;
+                }
+            }
+
+            function appendContent(items) {
+                const grid = contentContainer.querySelector('.grid');
+                if (grid) {
+                    const newCardsHTML = items.map(item => createCard(item)).join('');
+                    grid.insertAdjacentHTML('beforeend', newCardsHTML);
+                }
+            }
+            
+            function createCard(item) {
+                const itemString = JSON.stringify(item).replace(/"/g, '&quot;');
+                const tagsHTML = (item.tags || []).slice(0, 2).map(tag => `<span class="tag">#${titleCase(tag)}</span>`).join('');
+                return `
+                    <div class="cursor-pointer group" onclick='openPlayer(${itemString})'>
+                        <div class="rounded-lg overflow-hidden card-transform relative bg-gray-800 aspect-[2/3]">
+                            <img src="${item.poster}" alt="${titleCase(item.title)}" class="absolute inset-0 w-full h-full object-cover" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/400x600/1a1a1a/ffffff?text=Error';">
+                        </div>
+                        <h3 class="mt-2 text-md font-semibold truncate">${titleCase(item.title)}</h3>
+                        <div class="text-xs truncate">${tagsHTML}</div>
+                    </div>
+                `;
+            }
+
+            async function fetchAndRender(isLoadMore = false) {
+                if (isLoading) return;
+                isLoading = true;
+
+                if (!isLoadMore) {
+                    contentContainer.innerHTML = `<p class="text-center text-xl">लोड हो रहा है...</p>`;
+                }
+
+                try {
+                    let baseUrl = (currentMode === 'search' && currentQuery)
+                        ? `${SEARCH_URL}&search_text=${encodeURIComponent(currentQuery)}`
+                        : TRENDING_URL;
+                    const fullUrl = `${baseUrl}&page=${currentPage}`;
+
+                    const response = await fetch(fullUrl, {
+                        headers: { 'Authorization': `Bearer ${apiKey}` }
+                    });
+                    
+                    if (!response.ok) throw new Error(`API त्रुटि: ${response.status}`);
+                    
+                    const data = await response.json();
+                    
+                    if (data && data.items) {
+                        const items = data.items.map(item => ({
+                            id: item.id,
+                            title: item.username || item.id,
+                            tags: item.tags || [],
+                            poster: item.urls.poster,
+                            backdrop: item.urls.poster,
+                            hd: item.urls.hd
+                        }));
+
+                        if (isLoadMore) {
+                            appendContent(items);
+                        } else {
+                            if (items.length === 0) {
+                                contentContainer.innerHTML = `<p class="text-center text-xl">"${titleCase(currentQuery)}" के लिए कोई परिणाम नहीं मिला।</p>`;
+                                setupHero(null);
+                            } else {
+                                setupHero(items[0]);
+                                renderContent(items, currentMode === 'trending' ? 'ट्रेंडिंग में' : currentQuery);
+                            }
+                        }
+                        if (items.length > 0) currentPage++;
+                    } else {
+                         if (!isLoadMore) contentContainer.innerHTML = `<p class="text-center text-xl">कोई सामग्री नहीं मिली।</p>`;
+                    }
+                } catch (error) {
+                    console.error("विस्तृत त्रुटि:", error);
+                    contentContainer.innerHTML = `<p class="text-center text-xl text-red-500">सामग्री लोड करने में विफल: ${error.message}</p>`;
+                } finally {
+                    isLoading = false;
+                }
+            }
+            
+            function handleInfiniteScroll() {
+                const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 500;
+                if (nearBottom && !isLoading) {
+                    fetchAndRender(true);
+                }
+            }
+
+            function setupEventListeners() {
+                const searchForm = document.getElementById('search-form');
+                searchForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const searchInput = document.getElementById('search-input');
+                    const searchTerm = searchInput.value.trim();
+                    currentMode = 'search';
+                    currentQuery = searchTerm;
+                    currentPage = 1;
+                    fetchAndRender();
+                });
+
+                const categoryNav = document.getElementById('category-nav');
+                categoryNav.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (e.target.tagName === 'A' && e.target.dataset.category) {
+                        const category = e.target.dataset.category;
+                        document.getElementById('search-input').value = '';
+                        currentPage = 1;
+                        if (category === 'trending') {
+                            currentMode = 'trending';
+                            currentQuery = '';
+                        } else {
+                            currentMode = 'search';
+                            currentQuery = category;
+                        }
+                        fetchAndRender();
+                    }
+                });
+
+                const modal = document.getElementById('video-player-modal');
+                const closeBtn = document.getElementById('close-player-btn');
+                closeBtn.addEventListener('click', closePlayer);
+                modal.addEventListener('click', (e) => { if (e.target === modal) closePlayer(); });
+                
+                window.addEventListener('scroll', handleInfiniteScroll);
+            }
+
+            window.openPlayer = (item) => {
+                const modal = document.getElementById('video-player-modal');
+                const videoPlayer = document.getElementById('modal-video-player');
+                if (item && item.hd) {
+                    videoPlayer.src = item.hd;
+                    modal.classList.remove('hidden');
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+
+            function closePlayer() {
+                const modal = document.getElementById('video-player-modal');
+                const videoPlayer = document.getElementById('modal-video-player');
+                videoPlayer.pause();
+                videoPlayer.src = "";
+                modal.classList.add('hidden');
+                document.body.style.overflow = 'auto';
+            }
+
+            fetchAndRender();
+            setupEventListeners();
+        });
+    </script>
+</body>
+</html>
+
